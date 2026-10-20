@@ -1,0 +1,33 @@
+name: public-cli-verify
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: License and local contract
+        run: |
+          grep -q "Apache License" LICENSE
+          test -f NOTICE
+          node scripts/check-contract.mjs
+      - name: Offline CLI tests
+        run: npm test
+      - name: Source syntax
+        run: |
+          node --check src/cli.mjs
+          node --check bin/taghvim.mjs
