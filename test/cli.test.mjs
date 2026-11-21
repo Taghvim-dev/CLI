@@ -76,3 +76,36 @@ test("T0 canonical API command uses stdin JSON, no key/body in args, same Gatewa
    fetchImpl:async(_,opts)=>{anonAuth=opts.headers.authorization;return new Response("{}",{headers:{"content-type":"application/json"}})}}),0);
  assert.equal(anonAuth,undefined);
 });
+
+test("T0 Handle requests via canonical CLI require idempotency; public discovery omits authorization",async()=>{
+ const out=harness(),log=[];
+ const handle={handle:"@schooltheater",kind:"calendar",calendar_id:"cal_school_2026",
+  purpose:"Publisher verified school events calendar"};
+ const input=JSON.stringify({body:handle,idempotencyKey:"cli-handle-20261121",workspaceId:"wsp_owner_001"});
+ assert.equal(await run(["api","applyHandle"],{...out,env,input,
+  fetchImpl:async(url,opt)=>{
+   log.push({url,opt});
+   return new Response(JSON.stringify({request_id:"hdlreq_cli",status:"pending"}),{
+    status:202,headers:{"content-type":"application/json","Taghvim-Request-Id":"req_handle_cli"}
+   });
+  }}),0);
+ assert.equal(new URL(log[0].url).pathname,"/v1/handles/requests");
+ assert.equal(log[0].opt.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.equal(log[0].opt.headers["idempotency-key"],"cli-handle-20261121");
+ assert.deepEqual(JSON.parse(log[0].opt.body),handle);
+ let calls=0;
+ assert.equal(await run(["api","applyHandle"],{...harness(),env,input:JSON.stringify({body:handle}),
+  fetchImpl:async()=>{calls++;throw Error("INVALID_SIDE_EFFECT");}}),2);
+ assert.equal(calls,0);
+ const anon=harness();
+ assert.equal(await run(["api","discoverHandles"],{...anon,env:{},
+  input:JSON.stringify({query:{q:"school",tag:"theater",limit:10}}),
+  fetchImpl:async(url,opt)=>{
+   assert.equal(new URL(url).pathname,"/v1/public/handles");
+   assert.match(new URL(url).search,/q=school/);
+   assert.equal(opt.headers.authorization,undefined);
+   return new Response(JSON.stringify({data:[],count:0}),{
+    status:200,headers:{"content-type":"application/json","Taghvim-Request-Id":"req_cli_public"}
+   });
+  }}),0);
+});
