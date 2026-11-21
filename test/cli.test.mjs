@@ -47,3 +47,32 @@ test("returns structured errors and never writes bearer secrets to stderr",async
  assert.match(h.errors.join(""),/req_429/);
  assert.ok(!h.errors.join("").includes(env.TAGHVIM_TEST_API_KEY));
 });
+
+test("T0 canonical API command uses stdin JSON, no key/body in args, same Gateway routes",async()=>{
+ const output=harness(),seen=[];
+ const input=JSON.stringify({params:{calendar_id:"cal_sample_001",event_id:"event_customer_001"},
+  body:{expected_version:2,entity:{id:"event_customer_001"},occurrences:[]},
+  idempotencyKey:"ga-cli-idempotency-20261121",workspaceId:"ws_team_123"});
+ const code=await run(["api","updateCalendarEvent"],{
+  ...output,env, input,
+  fetchImpl:async(url,opts)=>{
+   seen.push({url,opts});
+   return new Response(JSON.stringify({ok:true,version:3}),{headers:{"content-type":"application/json",
+    "Taghvim-Request-Id":"req_cli_t0"}});
+  }
+ });
+ assert.equal(code,0);assert.equal(seen.length,1);
+ assert.equal(new URL(seen[0].url).pathname,"/v1/calendars/cal_sample_001/events/event_customer_001");
+ assert.equal(seen[0].opts.method,"PATCH");
+ assert.equal(seen[0].opts.headers["idempotency-key"],"ga-cli-idempotency-20261121");
+ assert.equal(seen[0].opts.headers["Taghvim-Workspace-Id"],"ws_team_123");
+ assert.equal(seen[0].opts.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.equal((await run(["api","updateCalendarEvent"],{...harness(),env,
+   input:JSON.stringify({params:{calendar_id:"../invalid",event_id:"x"},body:{}}),
+   fetchImpl:()=>{throw Error("forbidden network");}})),2);
+ const anonymous=harness();let anonAuth="sent";
+ assert.equal(await run(["api","listPublicCalendarEvents"],{...anonymous,env:{},
+   input:JSON.stringify({params:{calendar_id:"cal_sample_001"}}),
+   fetchImpl:async(_,opts)=>{anonAuth=opts.headers.authorization;return new Response("{}",{headers:{"content-type":"application/json"}})}}),0);
+ assert.equal(anonAuth,undefined);
+});
