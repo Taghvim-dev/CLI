@@ -14,6 +14,7 @@ Commands:
   holidays <year> [month]                 List holidays for a Jalali year/month
   schedule-preview <from> <rule> <count>  Preview upcoming occurrences
   usage [period]                          Read current usage or YYYY-MM period
+  api <operationId>                       Invoke a canonical operation using JSON on STDIN
   operations                              Print the bundled public API operation index
   help                                    Show this help
   version                                 Show CLI/contract version
@@ -42,7 +43,58 @@ function route(args){
  if(cmd==="usage"){if(rest.length||sub&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(sub))fail("period must be YYYY-MM");return {method:"GET",path:"/v1/usage"+(sub?"?period="+encodeURIComponent(sub):"")}}
  fail("Unknown command. Run taghvim help.");
 }
-export async function run(argv,{env=process.env,fetchImpl=globalThis.fetch,stdout=process.stdout,stderr=process.stderr}={}){
+
+const GA_IDEMPOTENT=new Set(["createWorkspace","createCalendarEvent","updateCalendarEvent",
+ "subscribeCalendar","setCalendarNotificationPreferences"]);
+const STRICT_ID=/^[A-Za-z][A-Za-z0-9_.:-]{3,159}$/;
+/** Canonical operation is selected by name; path/body/query data ONLY from
+ * bounded stdin, never from command arguments or a second route registry.
+ */
+async function routeCanonical(args,{input,stdin}){
+ if(args.length!==2||args[0]!=="api")fail("Usage: taghvim api <operationId> (JSON request on stdin)");
+ const op=contract.operations.find(o=>o.operationId===args[1]);
+ if(!op)fail("Operation not in pinned canonical public contract");
+ let raw=input;
+ if(raw===undefined){
+  let size=0;raw="";
+  for await(const chunk of stdin){
+   size+=Buffer.byteLength(chunk);
+   if(size>16384)fail("Canonical operation input too large");
+   raw+=chunk.toString("utf8");
+  }
+ }
+ if(typeof raw!=="string"||!raw.trim()||Buffer.byteLength(raw)>16384)fail("Canonical operation needs JSON on stdin (max 16 KiB)");
+ let request;
+ try{request=JSON.parse(raw)}catch{fail("Invalid canonical JSON input")}
+ if(!request||typeof request!=="object"||Array.isArray(request)||Object.keys(request).some(k=>!["body","params","query","workspaceId","idempotencyKey"].includes(k)))
+  fail("Invalid canonical operation request envelope");
+ let path=op.path;
+ const required=[...path.matchAll(/\{([a-z_]+)\}/g)].map(m=>m[1]);
+ if(request.params!==undefined&&(!request.params||typeof request.params!=="object"||Array.isArray(request.params)||Object.keys(request.params).some(k=>!required.includes(k))))
+  fail("Invalid operation path parameters");
+ for(const key of required){
+  const value=request.params?.[key];
+  if(typeof value!=="string"||!STRICT_ID.test(value))fail("Invalid canonical path parameter: "+key);
+  path=path.replace("{"+key+"}",encodeURIComponent(value));
+ }
+ if(request.workspaceId!==undefined&&
+   (typeof request.workspaceId!=="string"||!/^[A-Za-z][A-Za-z0-9_:-]{3,127}$/.test(request.workspaceId)))
+  fail("Invalid Workspace selector");
+ if(request.query!==undefined&&(!request.query||typeof request.query!=="object"||Array.isArray(request.query)||
+   Object.values(request.query).some(v=>v!==null&&!["string","number","boolean"].includes(typeof v))))
+  fail("Invalid API query");
+ if(op.method==="GET"&&request.body!==undefined)fail("GET cannot carry body");
+ if(GA_IDEMPOTENT.has(op.operationId)&&(!request.idempotencyKey||typeof request.idempotencyKey!=="string"))
+  fail("State-changing operation requires Idempotency-Key");
+ if(request.idempotencyKey!==undefined&&
+  (typeof request.idempotencyKey!=="string"||request.idempotencyKey.length<8||request.idempotencyKey.length>128||
+   !/^[\x21-\x7E]+$/.test(request.idempotencyKey)))fail("Invalid Idempotency-Key");
+ return {method:op.method,path,body:request.body,query:request.query,
+  idempotencyKey:request.idempotencyKey,workspaceId:request.workspaceId,
+  public:op.auth.length===0,contractOperation:op};
+}
+
+export async function run(argv,{env=process.env,fetchImpl=globalThis.fetch,stdout=process.stdout,stderr=process.stderr,input,stdin=process.stdin}={}){
  try{
   if(argv.some(x=>x.startsWith("--")&&x!=="--live"&&x!=="--help"&&x!=="--version"))fail("Unknown option");
   const live=argv.includes("--live"), args=argv.filter(x=>x!=="--live");
@@ -50,8 +102,8 @@ export async function run(argv,{env=process.env,fetchImpl=globalThis.fetch,stdou
   if(!command||command==="help"||command==="--help"){stdout.write(HELP+"\n");return 0}
   if(command==="version"||command==="--version"){stdout.write(JSON.stringify({cli:"0.1.0-preview.0",apiContract:contract.contractVersion,openApiGitBlobSHA:contract.openApiGitBlobSHA})+"\n");return 0}
   if(command==="operations"){stdout.write(JSON.stringify(contract,null,2)+"\n");return 0}
-  const spec=route(args);
-  const op=contract.operations.find(x=>x.method===spec.method&&x.path===spec.path.split("?")[0]);
+  const spec=command==="api"?await routeCanonical(args,{input,stdin}):route(args);
+  const op=spec.contractOperation||contract.operations.find(x=>x.method===spec.method&&x.path===spec.path.split("?")[0]);
   if(!op)fail("Operation not in pinned public contract");
   const key=live?env.TAGHVIM_LIVE_API_KEY:env.TAGHVIM_TEST_API_KEY;
   if(!spec.public&&(!key||typeof key!=="string"||!key.startsWith(live?"tgv_live_":"tgv_test_")))fail("An authorized "+(live?"live":"test")+" key in an environment variable is required");
@@ -59,7 +111,12 @@ export async function run(argv,{env=process.env,fetchImpl=globalThis.fetch,stdou
   let base;try{base=new URL(raw)}catch{fail("Invalid API URL")}
   if((base.protocol!=="https:"&&!(base.protocol==="http:"&&["localhost","127.0.0.1","[::1]"].includes(base.hostname)))||base.username||base.password||base.search||base.hash)fail("A clean HTTPS API URL is required");
   const url=new URL(spec.path,base);
+  if(spec.query)for(const [key,value] of Object.entries(spec.query)){
+    if(value!==null)url.searchParams.set(key,String(value));
+  }
   const headers={accept:"application/json"};
+  if(spec.idempotencyKey)headers["idempotency-key"]=spec.idempotencyKey;
+  if(spec.workspaceId)headers["Taghvim-Workspace-Id"]=spec.workspaceId;
   if(!spec.public)headers.authorization="Bearer "+key;
   if(spec.body)headers["content-type"]="application/json";
   let response;
