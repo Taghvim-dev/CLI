@@ -11,6 +11,8 @@
     "taghvim": "./bin/taghvim.mjs"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs && node scripts/check-contract.mjs"
+    "test": "node --test test/*.test.mjs && node scripts/check-contract.mjs",
+    "prepare": "node scripts/t0-install-hook.mjs",
+    "t0:preflight": "npm test"
   }
 }
