@@ -31,3 +31,42 @@ jobs:
         run: |
           node --check src/cli.mjs
           node --check bin/taghvim.mjs
+      - name: T0 direct CLI to real Cloudflare public API (no test fixtures or credentials)
+        shell: bash
+        env:
+          TAGHVIM_API_BASE_URL: https://api.taghvim.dev
+          TAGHVIM_TEST_API_KEY: ""
+          TAGHVIM_LIVE_API_KEY: ""
+          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          # Execute the shipped native Node CLI, not a mocked fetch adapter.
+          node bin/taghvim.mjs health > "$RUNNER_TEMP/taghvim-cli-health.json"
+          node bin/taghvim.mjs versions > "$RUNNER_TEMP/taghvim-cli-versions.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const read=file=>JSON.parse(fs.readFileSync(file,'utf8'));
+          const h=read(process.env.RUNNER_TEMP+'/taghvim-cli-health.json');
+          const v=read(process.env.RUNNER_TEMP+'/taghvim-cli-versions.json');
+          for(const [name,receipt] of [['health',h],['versions',v]]){
+            assert.equal(receipt.status,200,name+' must answer live HTTP 200');
+            assert.ok(receipt.requestId&&typeof receipt.requestId==='string',name+' trace missing');
+            assert.ok(receipt.data&&typeof receipt.data==='object',name+' live body absent');
+          }
+          assert.match(process.env.SOURCE_HEAD_SHA,/^[a-f0-9]{40}$/);
+          const evidence={kind:'taghvim.t0.native-cli.live-public-api.v1',source_head_sha:process.env.SOURCE_HEAD_SHA,
+            run_id:process.env.GITHUB_RUN_ID,api_origin:'https://api.taghvim.dev',
+            credentials:'none',mock_fetch:false,
+            operations:[['health',h],['versions',v]].map(([operation,x])=>({operation,http:x.status,request_id:x.requestId})),
+            ga_customer_authenticated_cli_verified:false};
+          fs.writeFileSync('t0-cli-live-receipt.json',JSON.stringify(evidence,null,2)+'\n');
+          console.log('T0_NATIVE_CLI_REAL_CLOUDFLARE_PASS',JSON.stringify({source:evidence.source_head_sha,http:200,operations:2}));
+          NODE
+      - name: Persist exact-source read-only live CLI receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: t0-native-cli-live-readonly
+          path: t0-cli-live-receipt.json
+          retention-days: 30
+          if-no-files-found: error
