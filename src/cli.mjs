@@ -44,7 +44,7 @@ function route(args){
  fail("Unknown command. Run taghvim help.");
 }
 
-const GA_IDEMPOTENT=new Set(["createWorkspace","createCalendarEvent","updateCalendarEvent",
+const GA_IDEMPOTENT=new Set(["applyHandle","createWorkspace","createCalendarEvent","updateCalendarEvent",
  "subscribeCalendar","setCalendarNotificationPreferences"]);
 const STRICT_ID=/^[A-Za-z][A-Za-z0-9_.:-]{3,159}$/;
 /** Canonical operation is selected by name; path/body/query data ONLY from

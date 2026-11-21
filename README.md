@@ -50,3 +50,19 @@ flowchart LR
 ```
 
 **License:** Apache-2.0 original code and docs, with trademark rights reserved. The CLI is not yet an npm registry release.
+
+## Handle discovery and Superadmin-gated registration (preview)
+
+Public published-source handles are discoverable without an API key:
+
+```bash
+echo '{"query":{"q":"music","tag":"concert","limit":10}}' | taghvim api discoverHandles
+```
+
+A Workspace Owner may **request** a handle (not reserve or activate it). It requires an issued test API key, a published/owned calendar, an idempotency key and a separate first-party Platform Superadmin decision:
+
+```bash
+echo '{"workspaceId":"wsp_owner_001","idempotencyKey":"req-handle-example-0001","body":{"handle":"@schooltheater","kind":"calendar","calendar_id":"cal_school_2026","purpose":"Verified public school performance calendar"}}' | taghvim api applyHandle
+```
+
+The handle request returns `pending` and is never itself proof of a public channel or webhook subscription. The four commercial payment effects remain separately disabled.
