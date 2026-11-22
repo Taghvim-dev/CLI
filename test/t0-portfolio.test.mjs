@@ -7,8 +7,10 @@ const idx=JSON.parse(readFileSync(new URL("../contracts/operation-index.json",im
 const key="tgv_test_SyntheticPortfolioKey";
 function io(){const stdout=[],stderr=[];return{stdout:{write:s=>stdout.push(s)},stderr:{write:s=>stderr.push(s)},lines:stdout,errors:stderr}}
 test("T0 CLI operation index uses Engine portfolio operation and exact OpenAPI blob",()=>{
- assert.equal(idx.openApiGitBlobSHA,"46146dbcec18eadad579dcac50afbf86d15d3276");
+ assert.equal(idx.openApiGitBlobSHA,"c7d29e88cba281b34c2dbf171c5edda5120fa57b");
  assert.equal(idx.operations.filter(x=>x.operationId==="listCalendarPortfolio"&&x.method==="GET"&&x.path==="/v1/portfolios/calendars"&&x.auth.join()==="ApiKey").length,1);
+ assert.equal(idx.operations.filter(x=>x.operationId==="listFinanceCountries"&&x.auth.length===0).length,1);
+ assert.equal(idx.operations.filter(x=>x.operationId==="getFinanceBusinessDayQuote"&&x.auth.includes("ApiKey")).length,1);
 });
 test("T0 CLI portfolio is a single authenticated read and rejects unapproved input before fetch",async()=>{
  const logs=[],h=io();
