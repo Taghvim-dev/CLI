@@ -66,3 +66,7 @@ echo '{"workspaceId":"wsp_owner_001","idempotencyKey":"req-handle-example-0001",
 ```
 
 The handle request returns `pending` and is never itself proof of a public channel or webhook subscription. The four commercial payment effects remain separately disabled.
+
+Worldwide holiday source-attributed preview:
+`taghvim finance holidays AE 2026` (requires a test key in an environment
+variable). Provider coverage does not certify official lunar or bank holidays.

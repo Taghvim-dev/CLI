@@ -131,3 +131,15 @@ test("Finance country discovery requires no key and financial preview requires t
  assert.equal(JSON.parse(missingRail.output.join("")).data.business_date,null);
 
 });
+
+test("worldwide holiday CLI validates market and year before authenticated request",async()=>{
+ let seen=[],o=harness();
+ const result=await run(["finance","holidays","AE","2026"],{...o,env,
+  fetchImpl:async(url,opts)=>{seen.push({url,opts});return Response.json({status:"available_preview",holiday_count:1,financial_decision_allowed:false});}});
+ assert.equal(result,0);
+ assert.equal(new URL(seen[0].url).pathname,"/v1/finance/holidays");
+ assert.equal(new URL(seen[0].url).searchParams.get("market"),"AE");
+ assert.equal(seen[0].opts.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.equal(await run(["finance","holidays","../AE","2026"],{...harness(),env,fetchImpl:()=>{throw Error("BAD");}}),2);
+ assert.equal(await run(["finance","holidays","AE","2018"],{...harness(),env,fetchImpl:()=>{throw Error("BAD");}}),2);
+});

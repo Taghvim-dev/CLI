@@ -16,6 +16,7 @@ Commands:
   portfolio [granted|selected]            List explicitly granted calendar Workspaces
   finance countries                       List all ISO 3166 countries and jurisdiction profiles
   finance quote <date> <market> <days>    Preview source-gated financial business days
+  finance holidays <market> <year>       List source-attributed public holidays
   usage [period]                          Read current usage or YYYY-MM period
   api <operationId>                       Invoke a canonical operation using JSON on STDIN
   operations                              Print the bundled public API operation index
@@ -44,6 +45,12 @@ function route(args){
  if(cmd==="holidays"&&sub){if(rest.length>1)fail("Unexpected arguments");const y=integer(sub,{min:1300,max:1500,name:"year"});const q=new URLSearchParams({year:String(y)});if(rest.length)q.set("month",String(integer(rest[0],{min:1,max:12,name:"month"})));return {method:"GET",path:"/v1/holidays?"+q.toString()}}
  if(cmd==="schedule-preview"&&sub){valid(2);const allowed=["last-business","daily","weekly","monthly"];if(!allowed.includes(rest[0]))fail("Unsupported rule (supported: "+allowed.join(", ")+")");return {method:"POST",path:"/v1/schedules/preview",body:{from:date(sub,"from"),rule:rest[0],count:integer(rest[1],{min:1,max:100,name:"count"})}}}
  if(cmd==="finance"&&sub==="countries"){valid(0);return {method:"GET",path:"/v1/finance/countries",public:true}}
+ if(cmd==="finance"&&sub==="holidays"){
+  valid(2);
+  if(!/^[A-Z]{2}(-[A-Z0-9]{2,4})?$/.test(rest[0]))fail("Explicit ISO market required");
+  const year=integer(rest[1],{min:2020,max:2035,name:"year"});
+  return {method:"GET",path:"/v1/finance/holidays?market="+encodeURIComponent(rest[0])+"&year="+year};
+ }
  if(cmd==="finance"&&sub==="quote"){
   valid(3);
   if(!/^[A-Z]{2}(-[A-Z0-9]{2,4})?$/.test(rest[1]))fail("Market must be an explicit ISO country/jurisdiction code");
