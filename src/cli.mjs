@@ -47,13 +47,13 @@ function route(args){
  if(cmd==="finance"&&sub==="countries"){valid(0);return {method:"GET",path:"/v1/finance/countries",public:true}}
  if(cmd==="finance"&&sub==="holidays"){
   valid(2);
-  if(!/^[A-Z]{2}(-[A-Z0-9]{2,4})?$/.test(rest[0]))fail("Explicit ISO market required");
+  if(!/^[A-Z]{2}(-[A-Z0-9]{1,4})?$/.test(rest[0]))fail("Explicit ISO market required");
   const year=integer(rest[1],{min:2020,max:2035,name:"year"});
   return {method:"GET",path:"/v1/finance/holidays?market="+encodeURIComponent(rest[0])+"&year="+year};
  }
  if(cmd==="finance"&&sub==="quote"){
   valid(3);
-  if(!/^[A-Z]{2}(-[A-Z0-9]{2,4})?$/.test(rest[1]))fail("Market must be an explicit ISO country/jurisdiction code");
+  if(!/^[A-Z]{2}(-[A-Z0-9]{1,4})?$/.test(rest[1]))fail("Market must be an explicit ISO country/jurisdiction code");
   return {method:"POST",path:"/v1/finance/business-days/quote",
    body:{date:date(rest[0]),markets:[rest[1]],offset_business_days:integer(rest[2],{min:0,max:366,name:"offset_business_days"})}};
  }
