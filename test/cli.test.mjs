@@ -8,6 +8,20 @@ test("help, operations and version are offline without credentials",async()=>{
  assert.match(v.output.join(""),/CLI/);
  const n=harness();assert.equal(await run(["operations"],{...n,env:{}}),0);assert.match(n.output.join(""),/convertDate/);
 });
+test("finance commands preserve canonical auth and refuse invalid markets",async()=>{
+ let record;const fetcher=async(url,opts)=>{record={url,opts};return new Response(JSON.stringify({status:"preview",business_date:"2026-12-29",financial_decision_allowed:false}),{status:200,headers:{"content-type":"application/json"}});};
+ assert.equal(await run(["finance","countries"],{...harness(),env:{},fetchImpl:fetcher}),0);
+ assert.equal(record.url,"https://api.taghvim.dev/v1/finance/countries");
+ assert.equal(record.opts.headers.authorization,undefined);
+ assert.equal(await run(["finance","quote","2026-12-24","1","GB-EW"],{...harness(),env,fetchImpl:fetcher}),0);
+ assert.equal(record.url,"https://api.taghvim.dev/v1/finance/business-days/quote");
+ assert.equal(record.opts.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.deepEqual(JSON.parse(record.opts.body),{date:"2026-12-24",offset_business_days:1,markets:["GB-EW"]});
+ let called=0;const blocked=()=>{called++;throw Error("bad network");};
+ assert.equal(await run(["finance","quote","2026-12-24","2","EU,GB-EW,EU"],{...harness(),env,fetchImpl:blocked}),2);
+ assert.equal(called,0);
+});
+
 test("convert request sends one scoped test-key POST and emits request ID",async()=>{
  const h=harness();let seen,requestCount=0;
  const code=await run(["convert","1405-07-15"],{...h,env,fetchImpl:async(url,init)=>{

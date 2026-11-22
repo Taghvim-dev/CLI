@@ -66,3 +66,7 @@ echo '{"workspaceId":"wsp_owner_001","idempotencyKey":"req-handle-example-0001",
 ```
 
 The handle request returns `pending` and is never itself proof of a public channel or webhook subscription. The four commercial payment effects remain separately disabled.
+
+## Global Financial Calendar (preview, not banking GA)
+
+`taghvim finance countries` lists ISO 249 registry entries, **not** 249 certified holiday feeds. `taghvim finance quote 2026-12-24 1 GB-EW` returns a source-attributed business-day preview via the normal authenticated, metered Taghvim Gateway; unknown bank/rail rules or lunar holiday announcements must remain `verification_required`, not assumed. There are no transfers, payment instructions, browser-embedded API keys or commercial settlement claims. Raw canonical operations remain available through `taghvim api getFinanceBusinessDayQuote` using JSON on stdin.
