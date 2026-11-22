@@ -120,5 +120,14 @@ test("Finance country discovery requires no key and financial preview requires t
  assert.equal(new URL(log[1].url).pathname,"/v1/finance/business-days/quote");
  assert.deepEqual(JSON.parse(log[1].opt.body),{date:"2026-12-24",markets:["GB-EW"],offset_business_days:1});
  assert.equal(log[1].opt.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
- assert.equal(await run(["finance","quote","2026-12-24","EU-T2","1"],{...harness(),env,fetchImpl:()=>{throw Error("unsupported market must not go to network")}}),2);
+ const missingRail=harness();
+ assert.equal(await run(["finance","quote","2026-12-24","EU-T2","1"],{...missingRail,env,
+  fetchImpl:async(url,opt)=>{
+   assert.equal(new URL(url).pathname,"/v1/finance/business-days/quote");
+   assert.equal(opt.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+   return new Response(JSON.stringify({status:"verification_required",business_date:null,financial_decision_allowed:false}),{
+    status:200,headers:{"content-type":"application/json"}});
+  }}),0);
+ assert.equal(JSON.parse(missingRail.output.join("")).data.business_date,null);
+
 });
