@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   verify:
-    if: ${{ false }} # T0 hard-stop until explicit budget authorization and new reviewed commit
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor == '007dude' && startsWith(github.event.head_commit.message, 'T0_CERTIFY_PUBLIC_CLI_20261122') }} # Exact owner-authored main push; disabled on all other events
     runs-on: ubuntu-26.04
     timeout-minutes: 12
     steps:
@@ -81,7 +81,7 @@ jobs:
           console.log('T0_NATIVE_CLI_REAL_CLOUDFLARE_PASS',JSON.stringify({source:evidence.source_head_sha,http:200,operations:2}));
           NODE
       - name: Persist exact-source read-only live CLI receipt
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: t0-native-cli-live-readonly
           path: t0-cli-live-receipt.json
