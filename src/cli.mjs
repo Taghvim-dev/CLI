@@ -12,6 +12,8 @@ Commands:
   convert <date>                          Convert a Jalali/Gregorian/Hijri date
   business-days add <date> <integer>      Add or subtract business days
   holidays <year> [month]                 List holidays for a Jalali year/month
+  finance countries                       List ISO249 countries (NOT verified)
+  finance quote <date> <markets> <days>    Read-only verified-source market preview
   schedule-preview <from> <rule> <count>  Preview upcoming occurrences
   portfolio [granted|selected]            List explicitly granted calendar Workspaces
   usage [period]                          Read current usage or YYYY-MM period
@@ -41,6 +43,17 @@ function route(args){
  if(cmd==="business-days"&&sub==="add"){valid(2);return {method:"POST",path:"/v1/business-days/add",body:{date:date(rest[0]),days:integer(rest[1],{min:-10000,max:10000,name:"days"})}}}
  if(cmd==="holidays"&&sub){if(rest.length>1)fail("Unexpected arguments");const y=integer(sub,{min:1300,max:1500,name:"year"});const q=new URLSearchParams({year:String(y)});if(rest.length)q.set("month",String(integer(rest[0],{min:1,max:12,name:"month"})));return {method:"GET",path:"/v1/holidays?"+q.toString()}}
  if(cmd==="schedule-preview"&&sub){valid(2);const allowed=["last-business","daily","weekly","monthly"];if(!allowed.includes(rest[0]))fail("Unsupported rule (supported: "+allowed.join(", ")+")");return {method:"POST",path:"/v1/schedules/preview",body:{from:date(sub,"from"),rule:rest[0],count:integer(rest[1],{min:1,max:100,name:"count"})}}}
+ if(cmd==="finance"&&sub==="countries"){valid(0);return{method:"GET",path:"/v1/finance/countries",public:true}}
+ if(cmd==="finance"&&sub==="quote"){
+  valid(3);
+  const markets=rest[1];
+  if(!/^[A-Z]{2}(?:-[A-Z0-9]{2,4})?(?:,[A-Z]{2}(?:-[A-Z0-9]{2,4})?){0,4}$/.test(markets||""))fail("Market list must be 1-5 comma-separated ISO market IDs");
+  const selected=markets.split(",");
+  if(new Set(selected).size!==selected.length)fail("Duplicate market IDs forbidden");
+  return{method:"POST",path:"/v1/finance/business-days/quote",
+   body:{date:date(rest[0]),markets:selected,
+    offset_business_days:integer(rest[2],{min:0,max:366,name:"business day offset"})}};
+ }
  if(cmd==="portfolio"){if(rest.length||sub&&!["granted","selected"].includes(sub))fail("Portfolio scope must be granted or selected");return {method:"GET",path:"/v1/portfolios/calendars?scope="+(sub||"granted")}}
  if(cmd==="usage"){if(rest.length||sub&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(sub))fail("period must be YYYY-MM");return {method:"GET",path:"/v1/usage"+(sub?"?period="+encodeURIComponent(sub):"")}}
  fail("Unknown command. Run taghvim help.");

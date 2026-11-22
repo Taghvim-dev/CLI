@@ -66,3 +66,13 @@ echo '{"workspaceId":"wsp_owner_001","idempotencyKey":"req-handle-example-0001",
 ```
 
 The handle request returns `pending` and is never itself proof of a public channel or webhook subscription. The four commercial payment effects remain separately disabled.
+
+
+## Financial time CLI (preview, non-payment)
+Use `taghvim finance countries` for the ISO 249 country registry. **This does not imply 249 official bank-holiday data feeds.**
+To preview a joint-market business date using your environment-held test key:
+```sh
+taghvim finance quote 2026-12-24 GB-EW 1
+```
+Or use the canonical operation with JSON on stdin: `taghvim api getFinanceBusinessDayQuote`.
+Date responses are explicitly marked `financial_decision_allowed:false`; bank/settlement rail rules, cut-offs, non-verified official holidays, and uncertain lunar dates fail closed. No payment transfer API is implemented.

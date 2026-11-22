@@ -109,3 +109,17 @@ test("T0 Handle requests via canonical CLI require idempotency; public discovery
    });
   }}),0);
 });
+
+test("nonpayment finance catalog is public and quote uses one authorized canonical API call",async()=>{
+ const o=harness(),seen=[];
+ const send=async(url,opts)=>{seen.push({url,opts});return new Response(JSON.stringify({status:"preview",business_date:"2026-12-29",financial_decision_allowed:false}),{status:200,headers:{"content-type":"application/json","Taghvim-Request-Id":"req_finance_cli"}})};
+ assert.equal(await run(["finance","countries"],{...o,env:{},fetchImpl:send}),0);
+ assert.equal(seen[0].opts.headers.authorization,undefined);
+ assert.equal(new URL(seen[0].url).pathname,"/v1/finance/countries");
+ assert.equal(await run(["finance","quote","2026-12-24","GB-EW", "1"],{...harness(),env,fetchImpl:send}),0);
+ assert.equal(new URL(seen[1].url).pathname,"/v1/finance/business-days/quote");
+ assert.equal(seen[1].opts.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.deepEqual(JSON.parse(seen[1].opts.body),{date:"2026-12-24",markets:["GB-EW"],offset_business_days:1});
+ const invalid=harness();assert.equal(await run(["finance","quote","2026-12-24","GB-EW,GB-EW","1"],{...invalid,env,fetchImpl:send}),2);
+ assert.equal(seen.length,2,"Rejected duplicate market never reaches network");
+});
