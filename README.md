@@ -78,3 +78,5 @@ API keys exclusively in environment variables and always going through the
 actual hosted Gateway's authorization and metering. This hostname is an
 example, not an activated service. Never use unreviewed holiday data as
 certified bank settlement dates.
+
+The holidays CLI returns `candidate_preview` for mixed source rules. `candidate_events` may include observances and are NOT authoritative public holidays or financial closure dates. Until a source is independently certified, `holidays=[]` and `holiday_count=0` remain intentional. Exact source OpenAPI Git blob: `ec967032f7bfcd39b82f5a8a112690c277677fcb`.
