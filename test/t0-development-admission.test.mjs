@@ -10,5 +10,6 @@ test("T0 agent admission: local pre-push and no CI failure mail on Draft",()=>{
  assert.match(file("scripts/t0-install-hook.mjs"),/core\.hooksPath/);
  const wf=file(".github/workflows/verify.yml");
  assert.match(wf,/types: \[opened, synchronize, reopened, ready_for_review\]/);
- assert.match(wf,/^  verify:\n    if: github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.draft == false/m);
+ assert.ok(wf.includes("${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.actor == '007dude' && startsWith(github.event.head_commit.message, 'T0_CERTIFY_PUBLIC_CLI_20261122') }}"),"only owner-bound one-shot main CI can run");
+ assert.doesNotMatch(wf,/^  schedule:/m,"no recurring CI");
 });
