@@ -70,3 +70,11 @@ The handle request returns `pending` and is never itself proof of a public chann
 Worldwide holiday source-attributed preview:
 `taghvim finance holidays AE 2026` (requires a test key in an environment
 variable). Provider coverage does not certify official lunar or bank holidays.
+
+### White-label financial calendar API
+The same native CLI uses a trusted customer-branded HTTPS origin via
+`TAGHVIM_API_BASE_URL=https://finance-api.customer.example` while keeping
+API keys exclusively in environment variables and always going through the
+actual hosted Gateway's authorization and metering. This hostname is an
+example, not an activated service. Never use unreviewed holiday data as
+certified bank settlement dates.
