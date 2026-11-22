@@ -109,3 +109,16 @@ test("T0 Handle requests via canonical CLI require idempotency; public discovery
    });
   }}),0);
 });
+
+test("Finance country discovery requires no key and financial preview requires tenant key",async()=>{
+ let log=[],out=harness();
+ const fetcher=async(url,opt)=>{log.push({url,opt});return new Response(JSON.stringify({status:"preview",financial_decision_allowed:false}),{headers:{"content-type":"application/json"}})};
+ assert.equal(await run(["finance","countries"],{...out,env:{},fetchImpl:fetcher}),0);
+ assert.equal(new URL(log[0].url).pathname,"/v1/finance/countries");
+ assert.equal(log[0].opt.headers.authorization,undefined);
+ assert.equal(await run(["finance","quote","2026-12-24","GB-EW","1"],{...harness(),env,fetchImpl:fetcher}),0);
+ assert.equal(new URL(log[1].url).pathname,"/v1/finance/business-days/quote");
+ assert.deepEqual(JSON.parse(log[1].opt.body),{date:"2026-12-24",markets:["GB-EW"],offset_business_days:1});
+ assert.equal(log[1].opt.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.equal(await run(["finance","quote","2026-12-24","EU-T2","1"],{...harness(),env,fetchImpl:()=>{throw Error("unsupported market must not go to network")}}),2);
+});
