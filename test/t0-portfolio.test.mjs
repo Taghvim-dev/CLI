@@ -7,7 +7,7 @@ const idx=JSON.parse(readFileSync(new URL("../contracts/operation-index.json",im
 const key="tgv_test_SyntheticPortfolioKey";
 function io(){const stdout=[],stderr=[];return{stdout:{write:s=>stdout.push(s)},stderr:{write:s=>stderr.push(s)},lines:stdout,errors:stderr}}
 test("T0 CLI operation index uses Engine portfolio operation and exact OpenAPI blob",()=>{
- assert.equal(idx.openApiGitBlobSHA,"12ed37fdbdc5ecd551cf9561855f476a71709078");
+ assert.equal(idx.openApiGitBlobSHA,"1aac9a1ff153ac99ae51797a0921e74d4e34dd6c");
  assert.equal(idx.operations.filter(x=>x.operationId==="listCalendarPortfolio"&&x.method==="GET"&&x.path==="/v1/portfolios/calendars"&&x.auth.join()==="ApiKey").length,1);
  assert.equal(idx.operations.filter(x=>x.operationId==="listFinanceCountries"&&x.auth.length===0).length,1);
  assert.equal(idx.operations.filter(x=>x.operationId==="getFinanceBusinessDayQuote"&&x.auth.includes("ApiKey")).length,1);
