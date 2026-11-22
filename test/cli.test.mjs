@@ -131,3 +131,18 @@ test("Finance country discovery requires no key and financial preview requires t
  assert.equal(JSON.parse(missingRail.output.join("")).data.business_date,null);
 
 });
+
+test("worldwide holiday CLI validates market and year before authenticated request",async()=>{
+ let seen=[],o=harness();
+ const result=await run(["finance","holidays","AE","2026"],{...o,env,
+  fetchImpl:async(url,opts)=>{seen.push({url,opts});return Response.json({status:"candidate_preview",holiday_count:0,candidate_count:2,financial_decision_allowed:false});}});
+ assert.equal(result,0);
+ assert.equal(new URL(seen[0].url).pathname,"/v1/finance/holidays");
+ assert.equal(new URL(seen[0].url).searchParams.get("market"),"AE");
+ assert.equal(seen[0].opts.headers.authorization,"Bearer "+env.TAGHVIM_TEST_API_KEY);
+ assert.equal(await run(["finance","holidays","AT-9","2026"],{...harness(),env,
+  fetchImpl:async(url)=>{seen.push({url});return Response.json({status:"source_unavailable",holiday_count:0,financial_decision_allowed:false})}}),0);
+ assert.equal(new URL(seen[1].url).searchParams.get("market"),"AT-9");
+ assert.equal(await run(["finance","holidays","../AE","2026"],{...harness(),env,fetchImpl:()=>{throw Error("BAD");}}),2);
+ assert.equal(await run(["finance","holidays","AE","2018"],{...harness(),env,fetchImpl:()=>{throw Error("BAD");}}),2);
+});
